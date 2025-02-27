@@ -376,7 +376,7 @@ class SGDBoop:
                 # 询问是否重启sunshine
                 restart_response = messagebox.askquestion(
                     "下载完成,询问重启服务",
-                    "{non_steam_app_data.name} 的封面已成功下载到 {outfile}。\n是否重启Sunshine服务？"
+                    f"{non_steam_app_data.name} 的封面已成功下载到 {outfile}。\n是否重启Sunshine服务？"
                 )
                 if restart_response == 'yes':
                     self.restart_service()
