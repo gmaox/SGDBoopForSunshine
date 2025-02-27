@@ -13,7 +13,7 @@ from tkinter import messagebox
 from zlib import crc32
 import winreg  # 添加winreg导入以访问Windows注册表
 import traceback  # 添加这个导入以获取堆栈信息
-#PyInstaller sgdb.py --uac-admin
+#PyInstaller -F SGDBoopForSunshine.py -i fav.ico --uac-admin
 API_VERSION = "2"
 API_USER_AGENT = "SGDBoop/v1.2.3"
 API_AUTH_TOKEN = "62696720-6f69-6c79-2070-65656e75733f"
@@ -301,7 +301,7 @@ class SGDBoop:
                 # 弹出询问窗口
                 response = messagebox.askquestion(
                     "选择操作",
-                    "URI参数能确保steamgriddb能打开程序。您想要创建URI协议还是删除URI协议？",
+                    "URI参数能确保steamgriddb能打开程序。您想要创建URI协议还是删除URI协议？\n是：创建URI协议，否：删除URI协议？",
                     icon='warning'
                 )
                 if response == 'yes':
@@ -373,11 +373,10 @@ class SGDBoop:
                 self.update_image_path_in_json(non_steam_app_data.name, outfile)
                 
                 # 弹出已完成提示框
-                self.show_message_box("下载完成", f"{non_steam_app_data.name} 的封面已成功下载到 {outfile}。")
                 # 询问是否重启sunshine
                 restart_response = messagebox.askquestion(
-                    "重启服务",
-                    "是否重启Sunshine服务？"
+                    "下载完成,询问重启服务",
+                    "{non_steam_app_data.name} 的封面已成功下载到 {outfile}。\n是否重启Sunshine服务？"
                 )
                 if restart_response == 'yes':
                     self.restart_service()
@@ -408,13 +407,13 @@ class SGDBoop:
                 # 注册协议处理程序
                 commands = [
                     # 添加基本协议信息
-                    ["HKEY_CLASSES_ROOT\\sgdb", "", "URL:sgdb protocol"],
+                    ["HKEY_CLASSES_ROOT\\sgdb", "", "URL:sgdb Protocol"],
                     # 添加URL协议标记
                     ["HKEY_CLASSES_ROOT\\sgdb", "URL Protocol", ""],
-                    # 添加命令
-                    ["HKEY_CLASSES_ROOT\\sgdb\\Shell\\Open\\Command", "", f'"{exe_path}" "%1" -new_console:z'],
+                    # 添加命令 - 修改命令行参数格式
+                    ["HKEY_CLASSES_ROOT\\sgdb\\Shell\\Open\\Command", "", f'"{exe_path}" "%1"'],
                     # 添加图标
-                    ["HKEY_CLASSES_ROOT\\sgdb\\DefaultIcon", "", exe_path]
+                    ["HKEY_CLASSES_ROOT\\sgdb\\DefaultIcon", "", f'"{exe_path},0"']
                 ]
                 
                 # 执行注册表操作
@@ -422,38 +421,45 @@ class SGDBoop:
                     try:
                         # 分割注册表路径
                         parts = key_path.split("\\")
+                        # 创建完整的路径
+                        full_path = "\\".join(parts[1:])
                         # 创建或打开键
-                        key = winreg.CreateKey(getattr(winreg, parts[0]), "\\".join(parts[1:]))
+                        key = winreg.CreateKeyEx(getattr(winreg, parts[0]), full_path, 0, 
+                                               winreg.KEY_WRITE | winreg.KEY_SET_VALUE)
                         # 设置值
-                        winreg.SetValue(key, value_name, winreg.REG_SZ, value_data)
+                        if value_name:
+                            winreg.SetValueEx(key, value_name, 0, winreg.REG_SZ, value_data)
+                        else:
+                            winreg.SetValue(key, "", winreg.REG_SZ, value_data)
                         winreg.CloseKey(key)
                     except WindowsError as e:
                         # 检查是否已经注册
                         try:
-                            key = winreg.OpenKey(getattr(winreg, parts[0]), "\\".join(parts[1:]) + "\\Shell\\Open\\Command")
+                            key = winreg.OpenKey(getattr(winreg, parts[0]), 
+                                               "\\".join(parts[1:]) + "\\Shell\\Open\\Command")
                             winreg.CloseKey(key)
                             popup_message = (
-                                "SGDBoop is already registered!\n"
-                                "Head over to https://www.steamgriddb.com/boop to continue setup.\n\n"
-                                "If you moved the program and want to register again, run SGDBoop as Administrator.\n"
+                                "SGDBoop已经注册！\n"
+                                "请前往 https://www.steamgriddb.com/boop 继续设置。\n\n"
+                                "如果您移动了程序并想重新注册，请以管理员身份运行SGDBoop。\n"
                             )
                             self.show_message_box("SGDBoop Error", popup_message)
                             return
                         except WindowsError:
-                            popup_message = "Please run this program as Administrator to register it!\n"
+                            popup_message = "请以管理员身份运行此程序以进行注册！\n"
                             self.show_message_box("SGDBoop Error", popup_message)
                             return
                 
                 popup_message = (
-                    "Program registered successfully!\n\n"
-                    "SGDBoop is meant to be ran from a browser!\n"
-                    "Head over to https://www.steamgriddb.com/boop to continue setup.\n\n"
-                    f"Log file path: {log_filepath}"
+                    "程序注册成功！\n\n"
+                    "SGDBoop需要从浏览器运行！\n"
+                    "请前往 https://www.steamgriddb.com/boop 继续设置。\n\n"
+                    f"日志文件路径: {log_filepath}"
                 )
                 self.show_message_box("SGDBoop Information", popup_message)
                 
             except Exception as e:
-                self.exit_with_error(f"Failed to register URI protocol: {str(e)}", 80)
+                self.exit_with_error(f"注册URI协议失败: {str(e)}", 80)
             
         else:
             # Linux系统不需要注册
@@ -469,21 +475,70 @@ class SGDBoop:
         if sys.platform == "win32":
             import winreg
             try:
-                # 删除注册表项
-                winreg.DeleteKey(winreg.HKEY_CLASSES_ROOT, "sgdb\\Shell\\Open\\Command")
-                winreg.DeleteKey(winreg.HKEY_CLASSES_ROOT, "sgdb\\Shell\\Open")
-                winreg.DeleteKey(winreg.HKEY_CLASSES_ROOT, "sgdb\\Shell")
-                winreg.DeleteKey(winreg.HKEY_CLASSES_ROOT, "sgdb\\DefaultIcon")
-                winreg.DeleteKey(winreg.HKEY_CLASSES_ROOT, "sgdb")
+                # 要删除的注册表项列表（从内到外的顺序）
+                keys_to_delete = [
+                    ["HKEY_CLASSES_ROOT", "sgdb\\Shell\\Open\\Command"],
+                    ["HKEY_CLASSES_ROOT", "sgdb\\Shell\\Open"],
+                    ["HKEY_CLASSES_ROOT", "sgdb\\Shell"],
+                    ["HKEY_CLASSES_ROOT", "sgdb\\DefaultIcon"],
+                    ["HKEY_CLASSES_ROOT", "sgdb"]
+                ]
                 
-                print("Program unregistered successfully!")
-                
-            except WindowsError:
-                print("Please run this program as Administrator!")
-                self.exit_with_error("Could not unregister the URI protocol.", 85)
+                # 逐个删除注册表项
+                for root_key, sub_key in keys_to_delete:
+                    try:
+                        # 尝试以完整权限打开键
+                        key = winreg.OpenKey(
+                            getattr(winreg, root_key),
+                            sub_key,
+                            0,
+                            winreg.KEY_ALL_ACCESS
+                        )
+                        winreg.CloseKey(key)  # 关闭键
+                        # 删除键
+                        winreg.DeleteKey(getattr(winreg, root_key), sub_key)
+                    except WindowsError as e:
+                        # 如果键不存在，继续下一个
+                        if e.winerror == 2:  # 找不到文件
+                            continue
+                        # 如果是权限问题
+                        elif e.winerror == 5:  # 访问被拒绝
+                            try:
+                                # 尝试直接删除
+                                os.system(f'reg delete "HKEY_CLASSES_ROOT\\{sub_key}" /f')
+                                continue
+                            except:
+                                self.show_message_box("错误", 
+                                    "无法删除注册表项，请尝试以下步骤：\n"
+                                    "1. 打开注册表编辑器(regedit)\n"
+                                    "2. 导航到 HKEY_CLASSES_ROOT\\sgdb\n"
+                                    "3. 右键删除该项\n"
+                                    "或者重启电脑后重试"
+                                )
+                                return
+                        else:
+                            # 其他错误则记录并继续
+                            print(f"删除 {sub_key} 时出错: {e}")
+                            continue
+
+                # 检查是否完全删除
+                try:
+                    # 尝试打开主键检查是否还存在
+                    winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, "sgdb")
+                    self.show_message_box("警告", "部分注册表项可能未完全删除，请手动检查注册表。")
+                except WindowsError as e:
+                    if e.winerror == 2:  # 找不到文件，说明删除成功
+                        self.show_message_box("成功", "程序注册已成功删除！")
+                    else:
+                        raise
+
+            except Exception as e:
+                error_msg = f"删除URI协议失败: {str(e)}"
+                self.log_error(error_msg, 85)
+                self.show_message_box("错误", error_msg)
         else:
             # Linux系统显示提示信息
-            print("A SGDB URL argument is required.\nExample: SGDBoop sgdb://boop/[ASSET_TYPE]/[ASSET_ID]")
+            print("需要SGDB URL参数。\n示例: SGDBoop sgdb://boop/[ASSET_TYPE]/[ASSET_ID]")
             sys.exit(1)
 
     def update_image_path_in_json(self, app_name: str, new_image_path: Path):
