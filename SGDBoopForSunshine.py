@@ -13,7 +13,9 @@ from tkinter import messagebox
 from zlib import crc32
 import winreg  # 添加winreg导入以访问Windows注册表
 import traceback  # 添加这个导入以获取堆栈信息
+import urllib3  # 添加这个导入以禁用SSL警告
 #PyInstaller -F SGDBoopForSunshine.py -i fav.ico --uac-admin
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning) #禁用SSL警告
 API_VERSION = "2"
 API_USER_AGENT = "SGDBoop/v1.2.3"
 API_AUTH_TOKEN = "62696720-6f69-6c79-2070-65656e75733f"
