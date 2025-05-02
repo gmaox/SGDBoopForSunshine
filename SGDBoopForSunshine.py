@@ -16,8 +16,8 @@ import traceback  # 添加这个导入以获取堆栈信息
 import urllib3  # 添加这个导入以禁用SSL警告
 #PyInstaller -F SGDBoopForSunshine.py -i fav.ico --uac-admin
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning) #禁用SSL警告
-API_VERSION = "2"
-API_USER_AGENT = "SGDBoop/v1.2.3"
+API_VERSION = "3"
+API_USER_AGENT = "SGDBoop/v1.3.1"
 API_AUTH_TOKEN = "62696720-6f69-6c79-2070-65656e75733f"
 
 class NonSteamApp:
@@ -340,7 +340,13 @@ class SGDBoop:
             
             # 处理API返回的每个资源
             non_steam_app_data = None
-            for app_id, orientation, asset_url, asset_type in api_results:
+            for result in api_results:
+                if len(result) < 4:
+                    self.exit_with_error("Invalid API response format.", 84)
+
+                app_id, orientation, asset_url, asset_type = result[:4]
+                asset_hash = result[4] if len(result) > 4 else None
+
                 if app_id.startswith("nonsteam-"):
                     if non_steam_app_data is None:
                         apps = self.get_non_steam_apps(include_mods=not (
