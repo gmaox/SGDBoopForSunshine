@@ -1,3 +1,4 @@
+# 该应用主要功能已由[QuickStreamAppAdd](https://github.com/gmaox/QuickStreamAppAdd)实现，故暂停维护
 # SGDBoopForSunshine
 能快速对sunshine的应用封面进行替换，使用方式和SGDBoop相同
 
